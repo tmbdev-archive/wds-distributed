@@ -1,0 +1,64 @@
+#!/bin/bash
+
+set -e
+
+export OMP_NUM_THREADS=1
+
+image=ocropus4
+remimage=tmbdev/ocropus4
+
+die() {
+    echo "ERROR: $*"
+    exit 1
+}
+
+cmd_venv() { # set up a virtualenv
+    test -d venv || python3 -m venv venv
+    source venv/bin/activate
+    pip3 install -U pip
+    pip3 install numpy
+    # pip3 install --pre torch torchvision -f https://download.pytorch.org/whl/nightly/cu111/torch_nightly.html
+    pip3 install torch==1.8.0+cu111 torchvision==0.9.0+cu111 torchaudio==0.8.0 -f https://download.pytorch.org/whl/torch_stable.html
+    test -f requirements.txt && pip3 install -U -r requirements.txt
+    test -f requirements.dev.txt && pip3 install -U -r requirements.dev.txt
+    pip3 install -U neovim
+    pip3 install -U jupyterlab
+    pip3 install -U pytest
+}
+
+cmd_lab() { # run jupyter lab in the environment
+    set -e
+    cmd_venv > venv.log
+    source venv/bin/activate
+    jupyter lab "$@"
+}
+
+cmd_help() { # help message
+echo
+echo available commands:
+echo
+grep '^cmd_[_0-9a-z]*() {' $0 | sed 's/cmd_//;s/\(.*\)() *{* *#* */\1 -- /'
+}
+
+cmd=${1:-help}
+shift
+case $cmd in
+help)
+    echo; echo available commands:; echo
+    grep '^cmd_[_0-9a-z]*() {' "$0" | sed 's/cmd_//;s/\(.*\)() *{* *#* */\1 -- /'
+    ;;
+*.py)
+    # cmd_versions
+    set -e
+    # hg status grep -v '^M ' > /dev/null
+    cmd_venv > venv.log
+    source venv/bin/activate
+    export OMP_NUM_THREADS=1
+    python3 "$cmd" "$@"
+    ;;
+*)
+    set -e
+    "cmd_$cmd" "$@"
+    ;;
+esac
+

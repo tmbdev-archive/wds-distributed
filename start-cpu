@@ -1,0 +1,18 @@
+#!/bin/bash
+
+set -x
+set -e
+
+session=distimgnet
+
+tmux new-session -s $session 'nvidia-smi dmon' \; detach-client
+
+export MASTER_ADDR=127.0.0.1
+export MASTER_PORT=25600
+
+seq 0 3 | while read -r rank; do
+    tmux split-window -t $session "env MASTER_ADDR=$MASTER_ADDR MASTER_PORT=$MASTER_PORT python3 distimgnet.py --size 4 --rank $rank --neval 10 --device cpu --threads 2 --nworkers 2 --ntest-workers 2; sleep 60"
+done
+
+tmux select-layout -t $session even-vertical
+tmux attach -t $session
