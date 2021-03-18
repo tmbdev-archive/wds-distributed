@@ -4,6 +4,7 @@ import warnings
 import torch
 import webdataset as wds
 import typer
+import braceexpand
 from collections import Counter
 from itertools import islice
 from torchvision import transforms
@@ -115,6 +116,15 @@ def train(
 
     If your data isn't in that form (and it usually isn't), you have to do something different.
     """
+
+    print("parameters:")
+    print(f"\tworldsize {size}")
+    print(f"\tnworkers {nworkers}")
+    print(f"\tnshards {len(list(braceexpand.braceexpand(shards)))}")
+    print(f"\tpartial {partial}")
+    print(f"\tloader-repeat {repeat}")
+    print(f"\tdataset-repeat {dsrepeat}")
+    print()
 
     global dist_size, dist_rank, show_splits
 

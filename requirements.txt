@@ -1,0 +1,9 @@
+braceexpand
+numpy
+torch
+pytest
+Pillow
+torchvision
+typer
+matplotlib
+scipy
