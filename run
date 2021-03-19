@@ -51,9 +51,7 @@ help)
     # cmd_versions
     set -e
     # hg status grep -v '^M ' > /dev/null
-    cmd_venv > venv.log
     source venv/bin/activate
-    export OMP_NUM_THREADS=1
     python3 "$cmd" "$@"
     ;;
 *)

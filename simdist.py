@@ -91,7 +91,8 @@ def make_loader(shards, batch_size=128, num_workers=6, partial=False, repeat=1):
 
 
 def train(
-    shards: str = "pipe:gsutil cat gs://lpr-simsplit/split-{000000..00009}.tar",
+    # shards: str = "pipe:gsutil cat gs://lpr-simsplit/split-{000000..00009}.tar",
+    shards: str = "pipe:curl -s -L http://storage.googleapis.com/lpr-simsplit/split-{000000..00009}.tar",
     size: int = 3,
     batch_size: int = 10,
     nworkers: int = 3,
@@ -122,6 +123,7 @@ def train(
     print(f"\tnworkers {nworkers}")
     print(f"\tnshards {len(list(braceexpand.braceexpand(shards)))}")
     print(f"\tpartial {partial}")
+    print(f"\tnbatches {nbatches}")
     print(f"\tloader-repeat {repeat}")
     print(f"\tdataset-repeat {dsrepeat}")
     print()
