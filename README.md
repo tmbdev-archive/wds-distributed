@@ -36,8 +36,13 @@ shuffle between different workers. For this, you can write:
     loader = wds.WebLoader(dataset, num_workers=num_workers, batch_size=None)
     loader = loader.unbatched().shuffle(1000).batched(batch_size)
 
+    nsamples = 0
+
     for inputs, targets in loader:
+
         trainer.train_batch(inputs, targets)
+
+        nsamples += len(inputs)
 
 (more documentation to follow)
 
