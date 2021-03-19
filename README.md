@@ -6,6 +6,10 @@ Start by installing the necessary virtual environment:
 
     $ ./run venv
 
+If you don't have it, install `curl`:
+
+    $ sudo apt-get install curl
+
 # `distimgnet.py`
 
 This illustrates training on ImageNet shards. You need to generate the shards
