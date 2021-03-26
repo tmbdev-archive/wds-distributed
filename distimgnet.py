@@ -28,12 +28,13 @@ def every(seconds, start=None):
 
 
 class Trainer:
-    def __init__(self, model):
+    def __init__(self, model, schedule=None):
         self.model = model
+        self.schedule = schedule
         self.criterion = nn.CrossEntropyLoss()
         self.last_lr = None
         self.device = "cpu"
-        self.clip_grad = 1.0
+        self.clip_grad = 10.0
         self.batches = 0
         self.samples = 0
         self.set_lr(0.1)
@@ -55,6 +56,8 @@ class Trainer:
         self.last_lr = lr
 
     def train_batch(self, inputs, targets):
+        if self.schedule is not None:
+            self.set_lr(self.schedule(self.samples))
         self.model.train()
         self.optimizer.zero_grad()
         self.batch_size = len(inputs)
@@ -102,20 +105,26 @@ class Trainer:
         return f"<Trainer {self.samples:10d} {np.mean(self.losses[-100:]):7.3e}>"
 
 
-def make_loader(shards, batch_size=128, num_workers=6):
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
-    augment = transforms.Compose(
-        [
+def make_loader(shards, batch_size=128, num_workers=6, cache_dir=None, mode="train"):
+    if shards is None:
+        return None
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    if mode == "train":
+        augment = [
             transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
         ]
-    )
+    else:
+        augment = [
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ]
+    augment = transforms.Compose(augment)
     dataset = (
-        wds.WebDataset(shards)
+        wds.WebDataset(shards, cache_dir=cache_dir)
         .shuffle(1000)
         .decode("pil")
         .to_tuple("jpg", "cls")
@@ -126,45 +135,35 @@ def make_loader(shards, batch_size=128, num_workers=6):
     return loader
 
 
-def make_test_loader(shards, batch_size=512, num_workers=4):
-    normalize = transforms.Normalize(
-        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-    )
-    augment = transforms.Compose(
-        [
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ]
-    )
-    dataset = (
-        wds.WebDataset(shards, shardshuffle=False)
-        .decode("pil")
-        .to_tuple("jpg", "cls")
-        .map_tuple(augment)
-        .batched(batch_size)
-    )
-    loader = wds.WebLoader(dataset, num_workers=num_workers, batch_size=None)
-    return loader
+def lrs(n, *args):
+    assert n >= 0
+    assert args[0][0] == 0
+    for n0, lr in args:
+        if n < n0: continue
+        return lr
 
 
 def train(
     mname: str = "resnet18",
     device: str = "cuda:0",
-    shards: str = "./data/imagenet-train-{000000..000146}.tar",
+    bucket: str = "./data/",
+    shards: str = "imagenet-train-{000000..000146}.tar",
+    testshards: str = "imagenet-val-{000000..000006}.tar",
     rank: int = -1,
     size: int = -1,
     batch_size: int = 128,
     comms: str = "gloo",
     show: bool = False,
-    testshards: str = "./data/imagenet-val-{000000..000006}.tar",
     test_batch_size: int = 1024,
     neval: int = 10,
     save_prefix: str = "",
     threads: int = -1,
     nworkers: int = 6,
     ntest_workers: int = 6,
+    cache_dir: str = None,
+    schedule: str = "lrs(n, (0, 1.0), (5e6, 0.1), (6e7, 0.01), (8e7, 0.001))",
 ):
+
     if size > 0:
         assert rank >= 0
         assert "MASTER_ADDR" in os.environ
@@ -182,13 +181,13 @@ def train(
     if threads > 0:
         torch.set_num_threads(threads)
 
-    loader = make_loader(shards, batch_size=batch_size, num_workers=nworkers)
-    testloader = (
-        make_test_loader(
-            testshards, batch_size=test_batch_size, num_workers=ntest_workers
-        )
-        if testshards
-        else None
+    loader = make_loader(bucket + shards, batch_size=batch_size, num_workers=nworkers, cache_dir=cache_dir)
+    testloader = make_loader(
+        bucket + testshards,
+        batch_size=test_batch_size,
+        num_workers=ntest_workers,
+        cache_dir=cache_dir,
+        mode="test",
     )
 
     models
@@ -197,7 +196,8 @@ def train(
         model = torch.nn.parallel.DistributedDataParallel(model)
     model.to(device)
 
-    trainer = Trainer(model)
+    schedule = eval(f"lambda n: {schedule}")
+    trainer = Trainer(model, schedule=schedule)
     trainer.to(device)
 
     trigger_report = every(10, 0)
@@ -211,7 +211,7 @@ def train(
 
         if trigger_report():
             print(
-                f"loss: {trainer.samples:10d} {np.mean(trainer.losses[-100:]):7.3e}",
+                f"loss: {trainer.samples:7.3e} {np.mean(trainer.losses[-100:]):7.3e} {trainer.last_lr:7.3e}",
                 end="\r",
                 flush=True,
             )

@@ -7,3 +7,7 @@ torchvision
 typer
 matplotlib
 scipy
+dask
+distributed
+webdataset
+-e git+https://github.com/tmbdev/torchmore.git#egg=torchmore
