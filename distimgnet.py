@@ -139,7 +139,8 @@ def lrs(n, *args):
     assert n >= 0
     assert args[0][0] == 0
     for n0, lr in args:
-        if n < n0: continue
+        if n < n0:
+            continue
         return lr
 
 
@@ -211,7 +212,9 @@ def train(
 
         if trigger_report():
             print(
-                f"loss: {trainer.samples:7.3e} {np.mean(trainer.losses[-100:]):7.3e} {trainer.last_lr:7.3e}",
+                f"samples {trainer.samples:7.3e} "
+                + f"loss {np.mean(trainer.losses[-100:]):7.3e} "
+                + f"lr {trainer.last_lr:7.3e}",
                 end="\r",
                 flush=True,
             )
