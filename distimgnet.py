@@ -138,10 +138,9 @@ def make_loader(shards, batch_size=128, num_workers=6, cache_dir=None, mode="tra
 def lrs(n, *args):
     assert n >= 0
     assert args[0][0] == 0
-    for n0, lr in args:
-        if n < n0:
-            continue
-        return lr
+    for n0, lr in args[::-1]:
+        if n > n0:
+            return lr
 
 
 def train(
